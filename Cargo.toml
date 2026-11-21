@@ -1,0 +1,33 @@
+[package]
+name = "rg52-remote"
+version = "1.0.0-alpha"
+edition = "2021"
+rust-version = "1.80"
+description = "Liga e desliga os Remote Services (SSH, Samba, filebrowser) na tela do RG52 Mini / dArkOS"
+license = "MIT"
+
+[lib]
+name = "rg52remote"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rg52-remote"
+path = "src/main.rs"
+required-features = ["ui"]
+
+[features]
+default = ["ui"]
+# Interface grafica (SDL2). Sem ela so a biblioteca compila: cargo test --no-default-features
+ui = ["dep:sdl2"]
+
+[dependencies]
+libc = "0.2"
+ab_glyph = "0.2"
+sdl2 = { version = "0.37", optional = true }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
