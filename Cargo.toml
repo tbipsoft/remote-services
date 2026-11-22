@@ -1,5 +1,5 @@
 [package]
-name = "rg52-remote"
+name = "remote-services"
 version = "1.0.0-alpha"
 edition = "2021"
 rust-version = "1.80"
@@ -7,11 +7,11 @@ description = "Liga e desliga os Remote Services (SSH, Samba, filebrowser) na te
 license = "MIT"
 
 [lib]
-name = "rg52remote"
+name = "remote_services"
 path = "src/lib.rs"
 
 [[bin]]
-name = "rg52-remote"
+name = "remote-services"
 path = "src/main.rs"
 required-features = ["ui"]
 

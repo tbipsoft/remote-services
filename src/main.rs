@@ -1,4 +1,4 @@
-//! rg52-remote: liga/desliga os Remote Services (SSH, Samba, filebrowser) numa tela so.
+//! remote-services: liga/desliga os Remote Services (SSH, Samba, filebrowser) numa tela so.
 //! A = ligar/desligar, B/Esc/Q sai. Os comandos rodam com `sudo -n`, como nos scripts
 //! originais do dArkOS (o usuario `ark` ja tem sudo sem senha).
 
@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rg52remote::{
+use remote_services::{
     devices::{self, screen, Feature},
     gfx::{Color, Fonts, Pixmap},
     remote::{self, Action, DryRunner, Progress, Runner, Shared, Svcs, SystemRunner},
@@ -26,9 +26,9 @@ use sdl2::{
 };
 
 const HELP: &str = "\
-rg52-remote - liga/desliga os Remote Services (SSH, Samba, filebrowser) no RG52 Mini
+remote-services - liga/desliga os Remote Services (SSH, Samba, filebrowser) no RG52 Mini
 
-USO: rg52-remote [opcoes]
+USO: remote-services [opcoes]
   --device ID       auto (padrao), rg52mini, rg43, r36s, rgb10, a10mini, rk3566 ou generic
   --fullscreen      tela cheia (use no aparelho)
   --no-gamepad      ignora o gamepad do SDL (use com o gptokeyb)

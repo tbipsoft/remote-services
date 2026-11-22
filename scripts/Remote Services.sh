@@ -1,20 +1,20 @@
 #!/bin/bash
 #
-# Remote Services -- launcher do menu "Tools" do dArkOS para o app rg52-remote
+# Remote Services -- launcher do menu "Tools" do dArkOS para o app remote-services
 # (liga/desliga SSH, Samba e filebrowser numa tela so, no visual dos outros rg52-*).
 #
 # O app le o estado em /proc (sem root) e liga/desliga os servicos com `sudo -n`, como os
 # scripts Enable/Disable Remote Services.sh originais (o usuario ark tem sudo sem senha). Onde colocar: este .sh na pasta dos
-# scripts do menu Tools e o binario `rg52-remote` numa destas opcoes:
-#   <pasta deste script>/rg52-remote/rg52-remote   (pasta "rg52-remote" ao lado do .sh)
-#   <pasta deste script>/rg52-remote             (binario ao lado do .sh)
-#   /opt/rg52-remote/rg52-remote
+# scripts do menu Tools e o binario `remote-services` numa destas opcoes:
+#   <pasta deste script>/remote-services/remote-services   (pasta "remote-services" ao lado do .sh)
+#   <pasta deste script>/remote-services             (binario ao lado do .sh)
+#   /opt/remote-services/remote-services
 #   DEVICE_PROFILE=r36s  forca o perfil (rg52mini, rg43, r36s, rgb10, a10mini, rk3566, generic)
 # Para trocar o destaque: ACCENT=teal (amber, teal, violet, coral ou #RRGGBB).
 
-APP=rg52-remote
-LOG=/tmp/rg52-remote.log
-RUN=/tmp/rg52-remote.run
+APP=remote-services
+LOG=/tmp/remote-services.log
+RUN=/tmp/remote-services.run
 TTY=${TTY:-/dev/tty1}
 USE_GPTOKEYB=${USE_GPTOKEYB:-0}
 
@@ -40,7 +40,7 @@ sudo chmod 666 "$TTY" 2>/dev/null
 printf '\033c\e[?25l' > "$TTY" 2>/dev/null
 
 BIN=$(find_bin) || {
-  say "rg52-remote nao encontrado.
+  say "remote-services nao encontrado.
 
 Coloque o binario em uma destas opcoes:
   $HERE/$APP/$APP
@@ -79,7 +79,7 @@ env \
 STATUS=$?
 
 if [ "$STATUS" -ne 0 ]; then
-  say "rg52-remote terminou com erro ($STATUS).
+  say "remote-services terminou com erro ($STATUS).
 
 $(tail -n 12 "$LOG" 2>/dev/null)
 

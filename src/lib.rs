@@ -1,4 +1,4 @@
-//! rg52-remote: liga e desliga os "Remote Services" do dArkOS (SSH, Samba e filebrowser)
+//! remote-services: liga e desliga os "Remote Services" do dArkOS (SSH, Samba e filebrowser)
 //! numa tela unica, no mesmo visual dos outros apps rg52-*.
 pub mod devices;
 pub mod gfx;

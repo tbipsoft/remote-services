@@ -260,7 +260,7 @@ pub fn primary_ipv4() -> Option<(String, String)> {
 /// Arquivo que indica "Remote Services ligados": o EmulationStation olha para ele para
 /// mostrar o icone na barra de cima. Fica em /tmp, que o boot limpa, e os servicos
 /// tambem voltam desligados no boot (os scripts originais so dao `start`).
-pub const FLAG_FILE: &str = "/tmp/rg52-remote.on";
+pub const FLAG_FILE: &str = "/tmp/remote-services.on";
 
 /// Cria o arquivo se algum servico estiver rodando e apaga se nenhum estiver.
 pub fn sync_flag(path: &Path, s: &Svcs) -> std::io::Result<()> {
@@ -519,7 +519,7 @@ mod tests {
     use super::*;
 
     fn tmpdir(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("rg52remote-{name}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("remote_services-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
         d
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn arquivo_de_estado_acompanha_os_servicos() {
         let d = tmpdir("flag");
-        let f = d.join("rg52-remote.on");
+        let f = d.join("remote-services.on");
         sync_flag(&f, &Svcs::default()).unwrap(); // apagar o que nao existe nao e erro
         assert!(!f.exists());
         sync_flag(&f, &Svcs::ALL).unwrap();

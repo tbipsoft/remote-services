@@ -1,6 +1,6 @@
 //! Tela do app: o design 960x540 (tema escuro, Manrope + JetBrains Mono), no mesmo
 #![allow(clippy::too_many_arguments)]
-//! visual de rg52-led / rg52-info / rg52-pad. Um interruptor grande liga e desliga os
+//! visual de led-rgb / system-info / controller-test. Um interruptor grande liga e desliga os
 //! Remote Services; ao lado, o estado de cada servico e o endereco para conectar.
 
 use crate::{
@@ -931,8 +931,8 @@ mod tests {
 
     #[test]
     fn captura_para_inspecao() {
-        // RG52_REMOTE_DUMP=/caminho cargo test captura  -> grava 4 estados em PPM
-        if let Ok(dir) = std::env::var("RG52_REMOTE_DUMP") {
+        // REMOTE_SERVICES_DUMP=/caminho cargo test captura  -> grava 4 estados em PPM
+        if let Ok(dir) = std::env::var("REMOTE_SERVICES_DUMP") {
             let idle = Progress::default();
             let busy = Progress {
                 running: Some(Action::Enable),
