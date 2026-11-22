@@ -58,40 +58,7 @@ struct R {
     h: f32,
 }
 
-/// Logo (RGBA, 264x56 = 2x do tamanho no design) e o tamanho em que e desenhado.
-const LOGO: &[u8] = include_bytes!("../assets/logo_264x56.rgba");
-const LOGO_SRC: (usize, usize) = (264, 56);
-const LOGO_W: f32 = 132.0;
-const LOGO_H: f32 = 27.8;
-const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
-
 impl P<'_> {
-    /// Desenha o logo centrado em (`cx`, `cy`) (coordenadas do design). A versao
-    /// reamostrada fica em cache, ja que o desenho pode rodar uma vez por segundo.
-    fn logo(&mut self, cx: f32, cy: f32) {
-        thread_local! {
-            static CACHE: std::cell::RefCell<Option<(usize, usize, Pixmap)>> =
-                const { std::cell::RefCell::new(None) };
-        }
-        let (dw, dh) = (
-            (LOGO_W * self.k).round() as usize,
-            (LOGO_H * self.k).round() as usize,
-        );
-        let (x, y) = (
-            (self.ox + (cx - LOGO_W / 2.0) * self.k).round() as i32,
-            (self.oy + (cy - LOGO_H / 2.0) * self.k).round() as i32,
-        );
-        CACHE.with(|c| {
-            let mut c = c.borrow_mut();
-            if !matches!(&*c, Some((w, h, _)) if *w == dw && *h == dh) {
-                let pm = Pixmap::from_rgba_scaled(LOGO, LOGO_SRC.0, LOGO_SRC.1, dw, dh);
-                *c = Some((dw, dh, pm));
-            }
-            if let Some((_, _, pm)) = &*c {
-                self.pm.blit(pm, x, y, 1.0);
-            }
-        });
-    }
     fn rrect(&mut self, r: R, rad: f32, c: Color) {
         let k = self.k;
         self.pm.fill_rrect(
@@ -119,11 +86,6 @@ impl P<'_> {
         let k = self.k;
         self.pm
             .fill_circle(self.ox + cx * k, self.oy + cy * k, r * k, c);
-    }
-    fn ring(&mut self, cx: f32, cy: f32, r: f32, bw: f32, c: Color) {
-        let k = self.k;
-        self.pm
-            .stroke_circle(self.ox + cx * k, self.oy + cy * k, r * k, bw * k, c);
     }
     fn width(&self, face: Face, size: f32, sp: f32, s: &str) -> f32 {
         self.f.width(face, size * self.k, sp * self.k, s) / self.k
@@ -238,6 +200,120 @@ pub fn hits_switch(x: f32, y: f32) -> bool {
     x >= sx - 16.0 && x <= sx + sw + 16.0 && y >= sy - 16.0 && y <= sy + sh + 16.0
 }
 
+/// Posicoes para a proporcao da tela: larga (16:9) ou compacta (4:3, 3:2).
+#[derive(Clone, Copy)]
+struct Geo {
+    w: f32,
+    h: f32,
+    compact: bool,
+    hero: R,
+    side: R,
+    sw: (f32, f32, f32, f32),
+    inset: f32,
+    x0: f32,
+    right: f32,
+    hdr_cy: f32,
+    head_y: f32,
+    head_size: f32,
+    sub_y: f32,
+    sub_size: f32,
+    small: f32,
+    rows: [f32; 3],
+    sep: f32,
+    addr: f32,
+    ip: f32,
+    ip_size: f32,
+    cmd: f32,
+    cmd_pitch: f32,
+    foot: f32,
+}
+
+impl Geo {
+    fn new(px_w: f32, px_h: f32) -> Geo {
+        let aspect = px_w / px_h;
+        if aspect >= 1.6 {
+            return Geo {
+                w: DESIGN_W,
+                h: DESIGN_H,
+                compact: false,
+                hero: HERO,
+                side: SIDE,
+                sw: switch_rect(),
+                inset: 18.0,
+                x0: X0,
+                right: 928.0,
+                hdr_cy: 44.0,
+                head_y: 252.0,
+                head_size: 40.0,
+                sub_y: 288.0,
+                sub_size: 14.0,
+                small: 13.0,
+                rows: [42.0, 90.0, 138.0],
+                sep: 196.0,
+                addr: 216.0,
+                ip: 250.0,
+                ip_size: 34.0,
+                cmd: 292.0,
+                cmd_pitch: 24.0,
+                foot: 514.0,
+            };
+        }
+        let (w, h) = (640.0, 640.0 / aspect);
+        let y = 38.0;
+        let body = h - y - 32.0;
+        let hero = R {
+            x: 8.0,
+            y,
+            w: 236.0,
+            h: body,
+        };
+        let (sw_w, sw_h) = (88.0, 44.0);
+        let sw_y = y + 40.0;
+        Geo {
+            w,
+            h,
+            compact: true,
+            hero,
+            side: R {
+                x: 252.0,
+                y,
+                w: 380.0,
+                h: body,
+            },
+            sw: (hero.x + (hero.w - sw_w) / 2.0, sw_y, sw_w, sw_h),
+            inset: 10.0,
+            x0: 10.0,
+            right: 630.0,
+            hdr_cy: 20.0,
+            head_y: sw_y + sw_h + 34.0,
+            head_size: 28.0,
+            sub_y: sw_y + sw_h + 60.0,
+            sub_size: 11.0,
+            small: 11.0,
+            rows: [34.0, 72.0, 110.0],
+            sep: 156.0,
+            addr: 172.0,
+            ip: 200.0,
+            ip_size: 26.0,
+            cmd: 234.0,
+            cmd_pitch: 20.0,
+            foot: h - 15.0,
+        }
+    }
+}
+
+/// O ponto (pixels de uma tela `w` x `h`) esta em cima do interruptor?
+pub fn hits_switch_px(w: f32, h: f32, px: f32, py: f32) -> bool {
+    let g = Geo::new(w.max(1.0), h.max(1.0));
+    let k = (w / g.w).min(h / g.h);
+    let (x, y) = (
+        (px - (w - g.w * k) / 2.0) / k,
+        (py - (h - g.h * k) / 2.0) / k,
+    );
+    let (sx, sy, sw, sh) = g.sw;
+    x >= sx - 16.0 && x <= sx + sw + 16.0 && y >= sy - 16.0 && y <= sy + sh + 16.0
+}
+
 /// Tudo o que a tela mostra num quadro.
 pub struct View<'a> {
     pub svcs: Svcs,
@@ -314,16 +390,22 @@ fn keycap(p: &mut P, x: f32, cy: f32, key: &str, label: &str, dim: bool) -> f32 
     x + kw + 8.0 + lw + 22.0
 }
 
-fn service_row(p: &mut P, y: f32, name: &str, detail: &str, on: bool, busy: bool) {
+fn service_row(p: &mut P, g: &Geo, row: usize, name: &str, detail: &str, on: bool, busy: bool) {
+    let y = g.side.y + g.rows[row];
     let cy = y + 22.0;
-    let x = SIDE.x + 18.0;
+    let x = g.side.x + g.inset;
     let dot = if on { OK } else { TRACK };
     if on {
         p.glow_circle(x + 5.0, cy, 5.0, 6.0, OK.alpha(0.5));
     }
     p.circle(x + 5.0, cy, 5.0, dot);
-    p.text_mid(Face::Sans700, 16.0, 0.0, TEXT, x + 22.0, cy - 7.0, name);
-    p.text_mid(Face::Mono500, 12.0, 0.0, MUTED, x + 22.0, cy + 11.0, detail);
+    let (nf, df) = if g.compact {
+        (14.0, 10.5)
+    } else {
+        (16.0, 12.0)
+    };
+    p.text_mid(Face::Sans700, nf, 0.0, TEXT, x + 22.0, cy - 7.0, name);
+    p.text_mid(Face::Mono500, df, 0.0, MUTED, x + 22.0, cy + 10.0, detail);
     let (txt, col) = if on {
         ("RUNNING", OK)
     } else if busy {
@@ -333,7 +415,7 @@ fn service_row(p: &mut P, y: f32, name: &str, detail: &str, on: bool, busy: bool
     };
     let tw = p.width(Face::Mono700, 12.0, 0.6, txt);
     let chip = R {
-        x: SIDE.x + SIDE.w - 18.0 - tw - 24.0,
+        x: g.side.x + g.side.w - g.inset - tw - 24.0,
         y: cy - 12.0,
         w: tw + 24.0,
         h: 24.0,
@@ -359,10 +441,11 @@ impl P<'_> {
 }
 
 /// Desenha o quadro completo em `pm` (tamanho livre; o design e centralizado e escalado).
-pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
+pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color, title: &str) {
     let (w, h) = (pm.width() as f32, pm.height() as f32);
-    let k = (w / DESIGN_W).min(h / DESIGN_H);
-    let (ox, oy) = ((w - DESIGN_W * k) / 2.0, (h - DESIGN_H * k) / 2.0);
+    let g = Geo::new(w.max(1.0), h.max(1.0));
+    let k = (w / g.w).min(h / g.h);
+    let (ox, oy) = ((w - g.w * k) / 2.0, (h - g.h * k) / 2.0);
     pm.clear(BG);
     let mut p = P {
         pm,
@@ -374,36 +457,39 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
     let col = state_color(v, accent);
 
     // --- cabecalho ---
-    let cy = 44.0;
-    p.ring(41.0, cy, 6.5, 2.0, TEXT);
-    p.ring(53.0, cy, 6.5, 2.0, accent);
-    let w1 = p.text_mid(Face::Sans800, 24.0, -0.48, TEXT, 74.0, cy, "RG52");
-    p.text_mid(
-        Face::Sans500,
-        24.0,
-        -0.48,
-        MUTED,
-        74.0 + w1 + 6.0,
-        cy,
-        "REMOTE",
+    let cy = g.hdr_cy;
+    crate::header::draw(
+        p.pm,
+        p.f,
+        p.k,
+        p.ox,
+        p.oy,
+        &crate::header::Header {
+            left: g.x0,
+            center: g.w / 2.0,
+            cy: cy,
+            compact: g.compact,
+            device: title,
+            app: "REMOTE",
+        },
     );
-    p.logo(480.0, cy);
     // selo do estado, no canto direito
     let tag = headline(v);
     let tw = p.width(Face::Sans800, 12.0, 1.68, tag);
+    let ph = if g.compact { 26.0 } else { 32.0 };
     let pill = R {
-        x: 928.0 - (tw + 46.0),
-        y: cy - 16.0,
+        x: g.right - (tw + 46.0),
+        y: cy - ph / 2.0,
         w: tw + 46.0,
-        h: 32.0,
+        h: ph,
     };
-    p.stroke(pill, 16.0, 1.5, col);
+    p.stroke(pill, ph / 2.0, 1.5, col);
     p.circle(pill.x + 18.0, cy, 4.0, col);
     p.text_mid(Face::Sans800, 12.0, 1.68, col, pill.x + 30.0, cy, tag);
 
     // --- cartao do interruptor ---
-    card(&mut p, HERO, "REMOTE SERVICES", accent);
-    let (sx, sy, sw, sh) = switch_rect();
+    card(&mut p, g.hero, "REMOTE SERVICES", accent);
+    let (sx, sy, sw, sh) = g.sw;
     let track = R {
         x: sx,
         y: sy,
@@ -431,8 +517,16 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
     );
     p.circle(knob_x, sy + sh / 2.0, sh / 2.0 - 6.0, Color::hex(0xF4F6FB));
 
-    let mid = HERO.x + HERO.w / 2.0;
-    p.text_c(Face::Sans800, 40.0, -0.4, col, mid, 252.0, headline(v));
+    let mid = g.hero.x + g.hero.w / 2.0;
+    p.text_c(
+        Face::Sans800,
+        g.head_size,
+        -0.4,
+        col,
+        mid,
+        g.head_y,
+        headline(v),
+    );
     let sub = if v.busy() {
         "Please wait...".to_string()
     } else {
@@ -442,13 +536,13 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
             Level::Partial => format!("{} of 3 services running", v.svcs.count()),
         }
     };
-    p.text_c(Face::Sans600, 14.0, 0.0, MUTED, mid, 288.0, &sub);
+    p.text_c(Face::Sans600, g.sub_size, 0.0, MUTED, mid, g.sub_y, &sub);
 
     // andamento ou resultado
     let strip = R {
-        x: HERO.x + 18.0,
-        y: HERO.y + HERO.h - 78.0,
-        w: HERO.w - 36.0,
+        x: g.hero.x + g.inset,
+        y: g.hero.y + g.hero.h - 60.0 - g.inset,
+        w: g.hero.w - 2.0 * g.inset,
         h: 60.0,
     };
     p.rrect(strip, 12.0, BG);
@@ -462,17 +556,17 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
         };
         p.text_mid(
             Face::Sans700,
-            14.0,
+            g.small + 1.0,
             0.0,
             TEXT,
-            strip.x + 16.0,
+            strip.x + 12.0,
             strip.y + 20.0,
             &lbl,
         );
         let t = R {
-            x: strip.x + 16.0,
+            x: strip.x + 12.0,
             y: strip.y + 38.0,
-            w: strip.w - 32.0,
+            w: strip.w - 24.0,
             h: 6.0,
         };
         p.rrect(t, 3.0, TRACK);
@@ -494,21 +588,21 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
     } else if let Some(o) = &v.progress.outcome {
         let c = if o.ok { OK } else { BAD };
         p.circle(strip.x + 20.0, strip.y + strip.h / 2.0, 5.0, c);
-        let max = strip.w - 54.0;
+        let max = strip.w - 46.0;
         let fit =
-            p.f.fit(Face::Sans600, 13.0 * k, 0.0, &o.text, max * k * 2.0);
+            p.f.fit(Face::Sans600, g.small * k, 0.0, &o.text, max * k * 2.0);
         // quebra em duas linhas quando nao cabe numa
-        let (l1, l2) = split_two(&p, &fit, max);
+        let (l1, l2) = split_two(&p, &fit, max, g.small);
         let ys = if l2.is_empty() {
             strip.y + 30.0
         } else {
             strip.y + 21.0
         };
-        p.text_mid(Face::Sans600, 13.0, 0.0, TEXT, strip.x + 36.0, ys, &l1);
+        p.text_mid(Face::Sans600, g.small, 0.0, TEXT, strip.x + 36.0, ys, &l1);
         if !l2.is_empty() {
             p.text_mid(
                 Face::Sans600,
-                13.0,
+                g.small,
                 0.0,
                 TEXT,
                 strip.x + 36.0,
@@ -519,48 +613,42 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
     } else {
         p.text_mid(
             Face::Sans600,
-            13.0,
+            g.small,
             0.0,
             MUTED,
-            strip.x + 16.0,
+            strip.x + 12.0,
             strip.y + 20.0,
             "Changes last until the next reboot.",
         );
         p.text_mid(
             Face::Sans600,
-            13.0,
+            g.small,
             0.0,
             MUTED,
-            strip.x + 16.0,
+            strip.x + 12.0,
             strip.y + 40.0,
             "Needs a working Wi-Fi connection.",
         );
     }
 
     // --- cartao dos servicos ---
-    card(&mut p, SIDE, "SERVICES", accent);
+    card(&mut p, g.side, "SERVICES", accent);
     let b = v.busy();
-    service_row(&mut p, SIDE.y + 42.0, "SSH", "port 22", v.svcs.ssh, b);
+    service_row(&mut p, &g, 0, "SSH", "port 22", v.svcs.ssh, b);
+    service_row(&mut p, &g, 1, "Samba", "SMB, port 445", v.svcs.smb, b);
     service_row(
         &mut p,
-        SIDE.y + 90.0,
-        "Samba",
-        "SMB, port 445",
-        v.svcs.smb,
-        b,
-    );
-    service_row(
-        &mut p,
-        SIDE.y + 138.0,
+        &g,
+        2,
         "File browser",
         "HTTP, port 80",
         v.svcs.files,
         b,
     );
     let sep = R {
-        x: SIDE.x + 18.0,
-        y: SIDE.y + 196.0,
-        w: SIDE.w - 36.0,
+        x: g.side.x + g.inset,
+        y: g.side.y + g.sep,
+        w: g.side.w - 2.0 * g.inset,
         h: 1.0,
     };
     p.rrect(sep, 0.0, LINE);
@@ -569,19 +657,19 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
         11.0,
         1.7,
         MUTED,
-        SIDE.x + 18.0,
-        SIDE.y + 216.0,
+        g.side.x + g.inset,
+        g.side.y + g.addr,
         "ADDRESS",
     );
     match &v.net {
         Some((ifc, ip)) => {
             p.text_mid(
                 Face::Mono700,
-                34.0,
+                g.ip_size,
                 0.0,
                 TEXT,
-                SIDE.x + 18.0,
-                SIDE.y + 250.0,
+                g.side.x + g.inset,
+                g.side.y + g.ip,
                 ip,
             );
             let lbl = format!("on {ifc}");
@@ -589,8 +677,8 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
                 Face::Sans600,
                 13.0,
                 MUTED,
-                SIDE.x + SIDE.w - 18.0,
-                SIDE.y + 250.0,
+                g.side.x + g.side.w - g.inset,
+                g.side.y + g.ip,
                 &lbl,
                 120.0,
             );
@@ -603,11 +691,11 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
                 let c = if *on { TEXT } else { KEYCAP_BORDER };
                 p.text_mid(
                     Face::Mono500,
-                    13.0,
+                    g.small + if g.compact { 1.0 } else { 0.0 },
                     0.0,
                     c,
-                    SIDE.x + 18.0,
-                    SIDE.y + 292.0 + i as f32 * 24.0,
+                    g.side.x + g.inset,
+                    g.side.y + g.cmd + i as f32 * g.cmd_pitch,
                     t,
                 );
             }
@@ -615,36 +703,34 @@ pub fn render(pm: &mut Pixmap, fonts: &Fonts, v: &View, accent: Color) {
         None => {
             p.text_mid(
                 Face::Sans800,
-                26.0,
+                g.ip_size - if g.compact { 4.0 } else { 8.0 },
                 -0.3,
                 WARN,
-                SIDE.x + 18.0,
-                SIDE.y + 250.0,
+                g.side.x + g.inset,
+                g.side.y + g.ip,
                 "No network",
             );
             p.text_mid(
                 Face::Sans600,
-                13.0,
+                g.small + 1.0,
                 0.0,
                 MUTED,
-                SIDE.x + 18.0,
-                SIDE.y + 290.0,
+                g.side.x + g.inset,
+                g.side.y + g.cmd,
                 "Connect to Wi-Fi first (Options > Wifi).",
             );
         }
     }
 
     // --- rodape ---
-    let fy = 514.0;
-    let x = keycap(&mut p, X0, fy, "A", action_label(v), v.busy());
+    let fy = g.foot;
+    let x = keycap(&mut p, g.x0, fy, "A", action_label(v), v.busy());
     keycap(&mut p, x, fy, "B", "Exit", false);
-    let vw = p.width(Face::Mono500, 12.0, 0.0, VERSION);
-    p.text_mid(Face::Mono500, 12.0, 0.0, MUTED, 928.0 - vw, fy, VERSION);
 }
 
 /// Divide `s` em ate duas linhas de largura `max` (quebra em espaco).
-fn split_two(p: &P, s: &str, max: f32) -> (String, String) {
-    if p.width(Face::Sans600, 13.0, 0.0, s) <= max {
+fn split_two(p: &P, s: &str, max: f32, size: f32) -> (String, String) {
+    if p.width(Face::Sans600, size, 0.0, s) <= max {
         return (s.to_string(), String::new());
     }
     let mut first = String::new();
@@ -655,7 +741,7 @@ fn split_two(p: &P, s: &str, max: f32) -> (String, String) {
         } else {
             format!("{first} {word}")
         };
-        if rest.is_empty() && p.width(Face::Sans600, 13.0, 0.0, &cand) <= max {
+        if rest.is_empty() && p.width(Face::Sans600, size, 0.0, &cand) <= max {
             first = cand;
         } else {
             if !rest.is_empty() {
@@ -664,7 +750,7 @@ fn split_two(p: &P, s: &str, max: f32) -> (String, String) {
             rest.push_str(word);
         }
     }
-    let rest = p.f.fit(Face::Sans600, 13.0 * p.k, 0.0, &rest, max * p.k);
+    let rest = p.f.fit(Face::Sans600, size * p.k, 0.0, &rest, max * p.k);
     (first, rest)
 }
 
@@ -683,7 +769,7 @@ mod tests {
 
     fn shot(v: &View) -> Pixmap {
         let mut pm = Pixmap::new(960, 540);
-        render(&mut pm, &Fonts::new(), v, ACCENT);
+        render(&mut pm, &Fonts::new(), v, ACCENT, "RG52");
         pm
     }
 
@@ -803,6 +889,47 @@ mod tests {
     }
 
     #[test]
+    fn telas_compactas_cabem_e_o_clique_acompanha() {
+        for (w, h) in [
+            (640.0f32, 480.0f32),
+            (480.0, 320.0),
+            (1024.0, 768.0),
+            (720.0, 720.0),
+        ] {
+            let g = Geo::new(w, h);
+            assert!(g.compact, "{w}x{h}");
+            assert!(g.hero.x + g.hero.w <= g.side.x, "{w}x{h}");
+            assert!(g.side.x + g.side.w <= g.w, "{w}x{h}");
+            let last = g.cmd + 2.0 * g.cmd_pitch + 10.0;
+            assert!(last <= g.side.h, "{w}x{h}: comandos passam do cartao");
+            assert!(g.hero.y + g.hero.h <= g.foot - 12.0, "{w}x{h}");
+            assert!(
+                g.sub_y + 8.0 <= g.hero.h + g.hero.y - 60.0 - g.inset,
+                "{w}x{h}: texto encosta na faixa"
+            );
+            let k = (w / g.w).min(h / g.h);
+            let (ox, oy) = ((w - g.w * k) / 2.0, (h - g.h * k) / 2.0);
+            let (sx, sy, sw, sh) = g.sw;
+            assert!(hits_switch_px(
+                w,
+                h,
+                ox + (sx + sw / 2.0) * k,
+                oy + (sy + sh / 2.0) * k
+            ));
+            assert!(!hits_switch_px(w, h, w - 2.0, h - 2.0));
+            let idle = Progress::default();
+            let mut pm = Pixmap::new(w as usize, h as usize);
+            render(
+                &mut pm,
+                &Fonts::new(),
+                &view(Svcs::ALL, &idle, true),
+                ACCENT,
+                "R36S",
+            );
+        }
+    }
+
+    #[test]
     fn captura_para_inspecao() {
         // RG52_REMOTE_DUMP=/caminho cargo test captura  -> grava 4 estados em PPM
         if let Ok(dir) = std::env::var("RG52_REMOTE_DUMP") {
@@ -832,7 +959,7 @@ mod tests {
                 ("err", view(Svcs::default(), &err, false)),
             ] {
                 let mut pm = Pixmap::new(1280, 720);
-                render(&mut pm, &Fonts::new(), &v, ACCENT);
+                render(&mut pm, &Fonts::new(), &v, ACCENT, "RG52");
                 pm.write_ppm(std::path::Path::new(&format!("{dir}/remote_{n}.ppm")))
                     .unwrap();
             }

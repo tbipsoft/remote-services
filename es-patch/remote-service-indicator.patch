@@ -5,7 +5,7 @@ index 0000000..ac400dc
 +++ b/es-core/src/renderers/RemoteIcon.h
 @@ -0,0 +1,19 @@
 +#include <string>
-+/* Icone "Remote Services ligados" (32x16, RGB565), gerado pelo rg52-remote. */
++/* Icone "Remote Services ligados" (32x16, RGB565), gerado pelo remote-service. */
 +
 +static const struct {
 +  unsigned int 	 width;
@@ -40,14 +40,14 @@ index c047c8e..de14956 100644
  			}
  
 +			{
-+				// REMOTE SERVICES ICON (rg52-remote): aceso enquanto /tmp/rg52-remote.on existir
++				// REMOTE SERVICES ICON (remote-service): aceso enquanto /tmp/remote-service.on existir
 +				const uint8_t* src = remote_image.pixel_data;
 +				int src_stride = 32 * sizeof(short);
 +
 +				uint8_t* dst = (uint8_t*)go2_surface_map(titlebarSurface);
 +				int dst_stride = go2_surface_stride_get(titlebarSurface);
 +
-+				if (access("/tmp/rg52-remote.on", F_OK) != 0)
++				if (access("/tmp/remote-service.on", F_OK) != 0)
 +				{
 +					src = blank_image.pixel_data;
 +					src += (1 * 16 * src_stride);

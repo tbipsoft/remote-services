@@ -11,9 +11,10 @@ use std::{
 };
 
 use rg52remote::{
+    devices::{self, screen, Feature},
     gfx::{Color, Fonts, Pixmap},
     remote::{self, Action, DryRunner, Progress, Runner, Shared, Svcs, SystemRunner},
-    ui::{hits_switch, parse_accent, render, to_design, View, ACCENT},
+    ui::{hits_switch_px, parse_accent, render, View, ACCENT},
     Level,
 };
 use sdl2::{
@@ -28,6 +29,7 @@ const HELP: &str = "\
 rg52-remote - liga/desliga os Remote Services (SSH, Samba, filebrowser) no RG52 Mini
 
 USO: rg52-remote [opcoes]
+  --device ID       auto (padrao), rg52mini, rg43, r36s, rgb10, a10mini, rk3566 ou generic
   --fullscreen      tela cheia (use no aparelho)
   --no-gamepad      ignora o gamepad do SDL (use com o gptokeyb)
   --accent COR      amber (padrao), teal, violet, coral ou #RRGGBB
@@ -41,6 +43,7 @@ USO: rg52-remote [opcoes]
 ";
 
 struct Args {
+    device: Option<String>,
     fullscreen: bool,
     no_gamepad: bool,
     accent: Color,
@@ -53,6 +56,7 @@ struct Args {
 
 fn parse_args() -> Result<Args, String> {
     let mut a = Args {
+        device: None,
         fullscreen: false,
         no_gamepad: false,
         accent: ACCENT,
@@ -66,6 +70,7 @@ fn parse_args() -> Result<Args, String> {
     while let Some(arg) = it.next() {
         let mut val = |n: &str| it.next().ok_or_else(|| format!("{n} precisa de um valor"));
         match arg.as_str() {
+            "--device" => a.device = Some(val("--device")?),
             "--fullscreen" => a.fullscreen = true,
             "--no-gamepad" => a.no_gamepad = true,
             "--accent" => a.accent = parse_accent(&val("--accent")?)?,
@@ -138,7 +143,40 @@ fn is_toggle_key(k: Keycode) -> bool {
     matches!(k, Keycode::Return | Keycode::KpEnter | Keycode::Space)
 }
 
+const INCOMPATIBLE: &str = "dArkOS was not detected on this device.";
+
 fn run(args: Args) -> Result<(), String> {
+    // Antes de qualquer `sudo systemctl`: fora do dArkOS o app nao deve mexer em servicos.
+    let detected = devices::resolve(args.device.as_deref())?;
+    let simulated = args.dry && args.device.is_none();
+    if !detected.supports(Feature::RemoteServices) && !simulated && !args.status {
+        eprintln!("device incompatible: {}", detected.label());
+        if args.act.is_some() {
+            process::exit(1);
+        }
+        if let Some(path) = &args.screenshot {
+            let mut pm = Pixmap::new(1280, 720);
+            let fonts = Fonts::new();
+            screen::render(
+                &mut pm,
+                &fonts,
+                "Remote Services",
+                &detected,
+                INCOMPATIBLE,
+                args.accent,
+            );
+            return pm.write_ppm(path).map_err(|e| e.to_string());
+        }
+        return screen::show(
+            "Remote Services",
+            &detected,
+            INCOMPATIBLE,
+            args.accent,
+            args.fullscreen,
+            args.no_gamepad,
+        );
+    }
+    let title = detected.profile.title;
     let rn = runner(&args);
 
     if args.status {
@@ -171,7 +209,7 @@ fn run(args: Args) -> Result<(), String> {
             net: s.net.clone(),
             progress: &s.progress,
         };
-        render(pm, &fonts, &v, args.accent);
+        render(pm, &fonts, &v, args.accent, title);
     };
 
     if let Some(path) = &args.screenshot {
@@ -193,7 +231,7 @@ fn run(args: Args) -> Result<(), String> {
             }
         }
     }
-    let mut wb = video.window("RG52 REMOTE", 960, 540);
+    let mut wb = video.window(&format!("{title} REMOTE"), 960, 540);
     wb.position_centered().resizable();
     if args.fullscreen {
         wb.fullscreen_desktop();
@@ -257,8 +295,7 @@ fn run(args: Args) -> Result<(), String> {
                     y,
                     ..
                 } => {
-                    let (x, y) = to_design(w as f32, h as f32, x as f32, y as f32);
-                    if hits_switch(x, y) {
+                    if hits_switch_px(w as f32, h as f32, x as f32, y as f32) {
                         toggle(&cur);
                     }
                 }
