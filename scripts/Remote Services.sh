@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Remote Services -- launcher do menu "Tools" do dArkOS para o app remote-services
-# (liga/desliga SSH, Samba e filebrowser numa tela so, no visual dos outros rg52-*).
+# (liga/desliga SSH, Samba e filebrowser numa tela so, no visual dos outros apps).
 #
 # O app le o estado em /proc (sem root) e liga/desliga os servicos com `sudo -n`, como os
 # scripts Enable/Disable Remote Services.sh originais (o usuario ark tem sudo sem senha). Onde colocar: este .sh na pasta dos
