@@ -259,6 +259,13 @@ fn run(args: Args) -> Result<(), String> {
     let mut cur = snap(&rn, &progress);
     let mut force = true;
     let mut quit = false;
+    // No KMSDRM os primeiros quadros podem se perder enquanto o EmulationStation solta a
+    // tela; sem redesenho a tela ficava preta ate o primeiro botao. Por isso desenhamos todo
+    // quadro no inicio e depois repintamos de tempos em tempos mesmo sem mudanca.
+    let started = Instant::now();
+    let warmup = Duration::from_millis(1500);
+    let refresh = Duration::from_secs(1);
+    let mut last_draw = Instant::now();
 
     let toggle = |cur: &Snap| {
         if cur.progress.running.is_some() {
@@ -343,7 +350,11 @@ fn run(args: Args) -> Result<(), String> {
         if shown.as_ref().map(|s| s.svcs) != Some(cur.svcs) {
             sync(&args, &cur.svcs);
         }
+        if started.elapsed() < warmup || last_draw.elapsed() >= refresh {
+            force = true;
+        }
         if force || shown.as_ref() != Some(&cur) {
+            last_draw = Instant::now();
             draw(&mut pm, &cur);
             tex.update(None, pm.data(), pm.pitch())
                 .map_err(|e| e.to_string())?;
